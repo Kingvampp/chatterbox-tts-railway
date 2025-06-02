@@ -32,7 +32,7 @@ EMOTIONS = ["professional", "excited", "happy", "calm", "sad", "angry", "surpris
 class TTSRequest(BaseModel):
     text: str
     voice: str = "neutral"  # Keep for API compatibility but won't be used directly
-    emotion: str = "professional"
+    emotion: str = "professional"  # Keep for API compatibility but won't be used directly
     exaggeration: float = 0.5
     num_inference_steps: int = 400  # Reduced from 1000 for faster generation
 
@@ -90,10 +90,9 @@ async def generate_speech(request: TTSRequest):
     logger.info(f"Using cfg_weight: {cfg_weight}, exaggeration: {request.exaggeration}, voice: {request.voice}")
     
     try:
-        # Generate audio - removing the voice parameter
+        # Generate audio - removing voice and emotion parameters that were causing errors
         audio = MODEL.generate(
             text=request.text,
-            emotion=request.emotion,
             cfg_weight=cfg_weight,
             num_inference_steps=request.num_inference_steps
         )
