@@ -31,7 +31,7 @@ EMOTIONS = ["professional", "excited", "happy", "calm", "sad", "angry", "surpris
 
 class TTSRequest(BaseModel):
     text: str
-    voice: str = "neutral"
+    voice: str = "neutral"  # Keep for API compatibility but won't be used directly
     emotion: str = "professional"
     exaggeration: float = 0.5
     num_inference_steps: int = 400  # Reduced from 1000 for faster generation
@@ -89,21 +89,24 @@ async def generate_speech(request: TTSRequest):
     cfg_weight = 1.0 - request.exaggeration
     logger.info(f"Using cfg_weight: {cfg_weight}, exaggeration: {request.exaggeration}, voice: {request.voice}")
     
-    # Generate audio
-    audio = MODEL.generate(
-        text=request.text,
-        voice=request.voice,
-        emotion=request.emotion,
-        cfg_weight=cfg_weight,
-        num_inference_steps=request.num_inference_steps
-    )
-    
-    # Convert to WAV
-    buffer = io.BytesIO()
-    torchaudio.save(buffer, audio, MODEL.sr, format="wav")
-    buffer.seek(0)
-    
-    return Response(content=buffer.read(), media_type="audio/wav")
+    try:
+        # Generate audio - removing the voice parameter
+        audio = MODEL.generate(
+            text=request.text,
+            emotion=request.emotion,
+            cfg_weight=cfg_weight,
+            num_inference_steps=request.num_inference_steps
+        )
+        
+        # Convert to WAV
+        buffer = io.BytesIO()
+        torchaudio.save(buffer, audio, MODEL.sr, format="wav")
+        buffer.seek(0)
+        
+        return Response(content=buffer.read(), media_type="audio/wav")
+    except Exception as e:
+        logger.error(f"Error generating speech: {str(e)}")
+        return Response(content=f"Error generating speech: {str(e)}", status_code=500)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8881))
