@@ -45,14 +45,28 @@ async def startup_event():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     logger.info(f"Using device: {device}")
     
-    # Load the model
-    MODEL = ChatterboxTTS.from_pretrained(device=device)
+    # Patch torch.load to always map to CPU when needed
+    original_torch_load = torch.load
+    def patched_torch_load(f, *args, **kwargs):
+        if not torch.cuda.is_available():
+            kwargs['map_location'] = 'cpu'
+        return original_torch_load(f, *args, **kwargs)
     
-    # Use half precision if on GPU
-    if device == "cuda":
-        MODEL = MODEL.half()
+    # Apply the patch
+    torch.load = patched_torch_load
+    
+    try:
+        # Load the model
+        MODEL = ChatterboxTTS.from_pretrained(device=device)
         
-    logger.info(f"✅ Chatterbox TTS loaded with {device.upper()}")
+        # Use half precision if on GPU
+        if device == "cuda":
+            MODEL = MODEL.half()
+            
+        logger.info(f"✅ Chatterbox TTS loaded with {device.upper()}")
+    finally:
+        # Restore original torch.load
+        torch.load = original_torch_load
 
 @app.get("/health")
 async def health_check():
@@ -93,4 +107,4 @@ async def generate_speech(request: TTSRequest):
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8881))
-    uvicorn.run("server:app", host="0.0.0.0", port=port) 
+    uvicorn.run("server:app", host="0.0.0.0", port=port)
